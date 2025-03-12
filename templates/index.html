@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Application de Gestion des Poubelles</title>
+  <!--link rel="stylesheet" href="style.css"-->
+  <style>
+    body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f9;
+}
+
+header {
+  background-color: #333;
+  color: white;
+  padding: 10px;
+  text-align: center;
+}
+
+h1 {
+  margin: 0;
+}
+
+main {
+  padding: 20px;
+}
+
+#map {
+  height: 400px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+section {
+  margin-bottom: 30px;
+}
+
+footer {
+  text-align: center;
+  background-color: #333;
+  color: white;
+  padding: 10px;
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+}
+
+  </style>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+</head>
+<body>
+
+  <header>
+    <h1>Suivi des Poubelles Urbaines</h1>
+  </header>
+
+  <main>
+    <section id="map-section">
+      <h2>Carte des Poubelles</h2>
+      <div id="map"></div> 
+    </section>
+	<br>
+     <button id="btnDirection">Direction Suivante</button>
+	 <br>
+	 
+    <section id="alertes">
+      <h2>Alertes</h2>
+      <ul id="alert-list"></ul>
+    </section>
+
+    <section id="statistiques">
+      <h2>Statistiques</h2>
+      <canvas id="pourcentageGraph" width="400" height="200"></canvas>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Gestion des déchets urbains</p>
+  </footer>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+  <script >
+    
+let poubelles = [];
+
+const points = [
+    { latitude: 33.983246, longitude: -6.863414 }, 
+    { latitude: 33.985711, longitude: -6.861666 },   
+    { latitude: 33.989382, longitude: -6.857494 }, 
+    { latitude: 33.988946, longitude: -6.855473 }, 
+	{ latitude: 33.987318, longitude: -6.853016 }, 
+    { latitude: 33.985628, longitude: -6.853327 }, 
+    { latitude: 33.981704, longitude: -6.857029 }, 
+    { latitude: 33.975681, longitude: -6.862758 }, 
+	{ latitude: 33.971802, longitude: -6.865247 }, 
+    { latitude: 33.970699, longitude: -6.867242 }, 
+    { latitude: 33.972621, longitude: -6.870665 }, 
+    { latitude: 33.975481, longitude: -6.869764 }, 
+	{ latitude: 33.980410, longitude: -6.865044 }, 
+    { latitude: 33.980455, longitude: -6.863370 }, 
+    { latitude: 33.981540, longitude: -6.868262 }, 
+    { latitude: 33.982670, longitude: -6.869990 }, 
+	{ latitude: 33.979805, longitude: -6.872286 }, 
+    { latitude: 33.984663, longitude: -6.868220 }, 
+    { latitude: 33.987145, longitude: -6.866106 },
+    { latitude: 33.987598, longitude: -6.863520 }, 
+	{ latitude: 33.988550, longitude: -6.861053 }, 
+    { latitude: 33.983408, longitude: -6.860763 }, 
+    { latitude: 33.980740, longitude: -6.860123 }, 
+    { latitude: 33.991889, longitude: -6.859533 }, 
+	{ latitude: 33.992729, longitude: -6.864737 }, 
+    { latitude: 33.991620, longitude: -6.867657 }, 
+    { latitude: 33.989244, longitude: -6.867278 }, 
+    { latitude: 33.996798, longitude: -6.862020 }, 
+	{ latitude: 34.001426, longitude: -6.859654 }, 
+    { latitude: 34.007847, longitude: -6.854639 }, 
+    { latitude: 34.006323, longitude: -6.852990 }, 
+    { latitude: 34.001941, longitude: -6.854653 }, 
+	{ latitude: 33.993179, longitude: -6.854099 }, 
+    { latitude: 33.997515, longitude: -6.851143 }, 
+    { latitude: 33.997209, longitude: -6.855719 }, 
+    { latitude: 33.997445, longitude: -6.859101 }, 
+	{ latitude: 34.001639, longitude: -6.854724 }, 
+    { latitude: 33.989503, longitude: -6.847618 }, 
+    { latitude: 33.995159, longitude: -6.844833 }, 
+    { latitude: 33.986486, longitude: -6.845572}, 
+	{ latitude: 33.982786, longitude: -6.846652 }, 
+    { latitude: 33.992001, longitude: -6.839546 }, 
+    { latitude: 33.979227, longitude: -6.849068 }, 
+    { latitude: 33.975148, longitude: -6.853064 }, 
+	{ latitude: 33.976305, longitude: -6.856921 }, 
+    { latitude: 33.969135, longitude: -6.859086 }, 
+    { latitude: 33.967867, longitude: -6.860314 }, 
+    { latitude: 33.990841, longitude: -6.872206 }, 
+	{ latitude: 33.988432, longitude: -6.869851 }, 
+    { latitude: 33.985534, longitude: -6.870514 }  
+];
+
+<!-- for (let i = 1; i <= 50; i++) { -->
+  <!-- let latitude = (34 + Math.random() * 0.01).toFixed(4); // Latitude entre 34.0000 et 34.0100 -->
+  <!-- let longitude = (-7.58 - Math.random() * 0.02).toFixed(4); // Longitude entre -7.5800 et -7.6000 -->
+  <!-- let pourcentage = 0; // Pourcentage entre 0 et 100 -->
+  <!-- let nom = `Poubelle ${String.fromCharCode(64 + ((i - 1) % 26) + 1)}${i > 26 ? Math.ceil(i / 26) : ''}`; // Générer des noms uniques -->
+  
+  <!-- poubelles.push({ -->
+    <!-- id: i, -->
+    <!-- latitude: parseFloat(latitude), -->
+    <!-- longitude: parseFloat(longitude), -->
+    <!-- pourcentage: pourcentage, -->
+    <!-- nom: nom -->
+  <!-- }); -->
+<!-- } -->
+
+points.forEach((point, index) => {
+    let nom = `Poubelle ${index + 1}`;
+    poubelles.push({
+        id: index + 1,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        pourcentage: 0, 
+		ramassee: false, 
+        nom: nom	
+    });
+});
+
+
+let markers = {};
+
+let map = L.map('map').setView([34.0000, -6.861053], 15); 
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+poubelles.forEach(poubelle => {
+  let color = poubelle.pourcentage > 75 ? 'green' : (poubelle.pourcentage > 50 ? 'orange' : 'red');
+  L.marker([poubelle.latitude, poubelle.longitude])
+    .addTo(map)
+    .bindPopup(`<b>${poubelle.nom}</b>`)
+    .setIcon(L.icon({
+      iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+    }));
+});
+
+
+let alertList = document.getElementById('alert-list');
+poubelles.forEach(poubelle => {
+  if (poubelle.pourcentage >= 90) {
+    let alertItem = document.createElement('li');
+    alertItem.textContent = `${poubelle.nom} est presque pleine (${poubelle.pourcentage}%)`;
+    alertItem.style.color = 'red';
+    alertList.appendChild(alertItem);
+  }
+});
+
+let ctx = document.getElementById('pourcentageGraph').getContext('2d');
+let labels = poubelles.map(p => p.nom);
+let data = poubelles.map(p => p.pourcentage);
+
+if (!ctx.graphInstance) {
+    ctx.graphInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: poubelles.map(p => p.nom),
+            datasets: [{
+                label: 'Pourcentage de remplissage',
+                data: poubelles.map(p => p.pourcentage),
+                backgroundColor: poubelles.map(p => p.pourcentage > 75 ? 'green' : (p.pourcentage > 50 ? 'orange' : 'red')),
+                borderColor: 'black',
+                borderWidth: 1,
+            }],
+        },
+        options: { scales: { y: { beginAtZero: true, max: 100 } } },
+    });
+} else {
+    ctx.graphInstance.data.datasets[0].data = poubelles.map(p => p.pourcentage);
+    ctx.graphInstance.update();
+}
+///////////////
+
+let camion = { latitude: 33.900000, longitude: -6.860000 }; // Position actuelle du camion
+
+function distanceSimplifiee(lat1, lon1, lat2, lon2) {
+    const dx = lat2 - lat1;
+    const dy = lon2 - lon1;
+    return Math.sqrt(dx * dx + dy * dy); 
+}
+
+function trouverPoubelleLaPlusProche(camion, poubelles) {
+    let poubellesCritiques = poubelles.filter(p => p.pourcentage >= 85 && !p.ramassee);
+
+    if (poubellesCritiques.length > 0) {
+        let poubelleMax = poubellesCritiques.reduce((max, p) => (p.pourcentage > max.pourcentage ? p : max));
+        return poubelleMax;
+    }
+
+    let poubellesARamasser = poubelles.filter(p => p.pourcentage >= 60 && !p.ramassee);
+
+    if (poubellesARamasser.length === 0) {
+        return null; 
+    }
+
+    let minDistance = Infinity;
+    let prochainePoubelle = null;
+
+    poubellesARamasser.forEach(p => {
+        const distance = distanceSimplifiee(camion.latitude, camion.longitude, p.latitude, p.longitude);
+        if (distance < minDistance) {
+            minDistance = distance;
+            prochainePoubelle = p;
+        }
+    });
+
+    return prochainePoubelle;
+}
+
+function ramasserPoubelle(poubelle) {
+    if (poubelle) {
+        poubelle.ramassee = true; 
+        console.log(`Poubelle ID ${poubelle.id} ramassée.`);
+    }
+}
+
+function afficherProchaineStation() {
+    const prochainePoubelle = trouverPoubelleLaPlusProche(camion, poubelles);
+
+    if (prochainePoubelle) {
+        alert(`Prochaine station: Poubelle ID ${prochainePoubelle.id} située à (${prochainePoubelle.latitude}, ${prochainePoubelle.longitude}) avec ${prochainePoubelle.pourcentage}% de remplissage.`);
+
+        ramasserPoubelle(prochainePoubelle);
+
+        camion.latitude = prochainePoubelle.latitude;
+        camion.longitude = prochainePoubelle.longitude;
+    } else {
+        alert("Aucune poubelle à ramasser.");
+    }
+}
+
+const btnDirection = document.getElementById("btnDirection");
+btnDirection.addEventListener("click", afficherProchaineStation);
+
+
+const socket = io();
+
+socket.on("mqtt_message", (data) => {
+     
+    console.log("Données MQTT reçues :", data);
+
+    const poubelle = poubelles.find(p => p.id === data.id);
+    if (poubelle) {
+        poubelle.pourcentage = data.pourcentage;
+        poubelle.distance = data.distance;
+    }
+
+    const color = poubelle.pourcentage > 75 ? 'green' : (poubelle.pourcentage > 50 ? 'orange' : 'red');
+    
+	if (data.latitude && data.longitude && data.pourcentage !== undefined) {
+    let color = data.pourcentage > 75 ? 'green' : (data.pourcentage > 50 ? 'orange' : 'red');
+
+    if (!markers[data.id]) {
+        markers[data.id] = L.marker([data.latitude, data.longitude], {
+            icon: L.icon({
+                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+            }),
+        }).addTo(map).bindPopup(`<b>${data.nom}</b><br>Pourcentage de remplissage: ${data.pourcentage}%`);
+    } else {
+        markers[data.id]
+            .setLatLng([data.latitude, data.longitude]) 
+            .setPopupContent(`<b>${data.nom}</b><br>Pourcentage de remplissage: ${data.pourcentage}%`) 
+            .setIcon(L.icon({
+                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+            })); 
+    }
+}
+
+
+    const alertList = document.getElementById('alert-list');
+    alertList.innerHTML = ""; 
+    poubelles.forEach(p => {
+        if (p.pourcentage >= 90) {
+            const alertItem = document.createElement('li');
+            alertItem.textContent = `${p.nom} est presque pleine (${p.pourcentage}%)`;
+            alertItem.style.color = 'red';
+            alertList.appendChild(alertItem);
+        }
+    });
+
+    const ctx = document.getElementById('pourcentageGraph').getContext('2d');
+    const graph = Chart.getChart(ctx);
+    if (graph) {
+        graph.data.datasets[0].data = poubelles.map(p => p.pourcentage);
+        graph.update();
+    }
+});
+
+
+  </script> 
+</body>
+</html>
